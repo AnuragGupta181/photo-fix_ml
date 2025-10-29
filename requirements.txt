@@ -1,0 +1,8 @@
+flask
+flask-cors
+ultralytics
+rembg
+pillow
+pytesseract
+werkzeug
+uuid
