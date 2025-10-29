@@ -28,7 +28,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 
 # Load YOLO model
-MODEL_PATH = "./best.pt"
+MODEL_PATH = "object_identify.pt"
 model = YOLO(MODEL_PATH)
 
 
