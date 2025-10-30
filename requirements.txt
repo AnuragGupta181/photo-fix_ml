@@ -1,8 +1,10 @@
-flask
+Flask>=2.0
 flask-cors
-ultralytics
+ultralytics==8.2.103
 rembg
 pillow
 pytesseract
+gunicorn
 werkzeug
 uuid
+onnxruntime

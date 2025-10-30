@@ -1,39 +1,34 @@
-
-# ------------------------------
-# 1. Base image
-# ------------------------------
+# ---------- Base ----------
 FROM python:3.10-slim
 
-# ------------------------------
-# 2. Set working directory
-# ------------------------------
 WORKDIR /app
 
-# ------------------------------
-# 3. Install system dependencies
-# ------------------------------
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    libgl1 \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# ---------- Install system dependencies ----------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        libgl1 \
+        libglib2.0-0 \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# ------------------------------
-# 4. Copy project files
-# ------------------------------
+# ---------- Copy project ----------
+COPY requirements.txt .
 COPY . .
 
-# ------------------------------
-# 5. Install Python dependencies
-# ------------------------------
+# ---------- Environment ----------
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# ---------- Install lightweight CPU PyTorch first ----------
+RUN apt-get update && apt-get install -y ffmpeg tesseract-ocr
+RUN pip install torch==2.3.0+cpu torchvision==0.18.0+cpu torchaudio==2.3.0+cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu
+
+# ---------- Install remaining dependencies ----------
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ------------------------------
-# 6. Expose port
-# ------------------------------
-EXPOSE 5000
-
-# ------------------------------
-# 7. Run Flask app
-# ------------------------------
-CMD ["python", "server.py"]
+# ---------- Expose & run ----------
+EXPOSE 8080
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "server:app"]
