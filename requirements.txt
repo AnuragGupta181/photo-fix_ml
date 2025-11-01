@@ -1,6 +1,6 @@
 Flask>=2.0
 flask-cors
-ultralytics==8.2.103
+ultralytics==8.3.23
 rembg
 pillow
 pytesseract

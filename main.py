@@ -16,7 +16,7 @@ import shutil
 # - Windows (example): r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # - Linux/EC2/Docker: usually '/usr/bin/tesseract'
 # Set appropriately for your environment. For EC2 you will often use the Linux path.
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 app = Flask(__name__)
