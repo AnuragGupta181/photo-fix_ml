@@ -9,14 +9,7 @@ from flask_cors import CORS
 import pytesseract
 import shutil
 
-# --------------------------
-#  CONFIG / PATHS
-# --------------------------
-# Tesseract path:
-# - Windows (example): r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# - Linux/EC2/Docker: usually '/usr/bin/tesseract'
-# Set appropriately for your environment. For EC2 you will often use the Linux path.
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
 pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 app = Flask(__name__)
@@ -35,17 +28,11 @@ os.makedirs(app.config['UPLOAD_DIR'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_DIR'], exist_ok=True)
 
 
-# --------------------------
-#  LOAD MODEL (global)
-# --------------------------
-# Keep model loaded globally for performance.
 MODEL_PATH = "best11.pt"  # ensure this exists
 model = YOLO(MODEL_PATH)
 
 
-# --------------------------
 #  HELPERS
-# --------------------------
 def allowed_file(name):
     return '.' in name and name.rsplit('.', 1)[1].lower() in app.config['ALLOWED']
 
@@ -94,9 +81,7 @@ def make_output_folder(user_id):
     return path
 
 
-# --------------------------
 #  ROUTES
-# --------------------------
 @app.route("/", methods=["GET"])
 def info():
     return jsonify({
@@ -116,9 +101,7 @@ def health():
     return jsonify({"status": "success", "message": "Server healthy"}), 200
 
 
-# --------------------------
 #  DETECT
-# --------------------------
 @app.route("/detect", methods=["POST"])
 def detect():
     # expects form-data: image file and _id
@@ -140,7 +123,6 @@ def detect():
     file.save(upload_path)
 
     try:
-        # run model (no saving) and collect predictions
         results = model.predict(source=upload_path, save=False)
         res = results[0]
 
@@ -149,7 +131,6 @@ def detect():
         confidences = []
 
         for b in res.boxes:
-            # b.xyxy is tensor-like, get values
             xy = b.xyxy[0].tolist()
             cls = int(b.cls[0]) if hasattr(b, "cls") else int(b.cls)
             conf = float(b.conf[0]) if hasattr(b, "conf") else float(b.conf)
@@ -157,21 +138,17 @@ def detect():
             classes.append(model.names[cls])
             confidences.append(conf)
 
-        # prepare output path and filename
         out_folder = make_output_folder(user_id)
         out_name = f"{uid}_processed_detect.jpg"
         out_path = os.path.join(out_folder, out_name)
 
-        # draw boxes and save output as JPG
         draw_boxes_and_save(upload_path, boxes, classes, out_path)
 
-        # delete upload file (only upload deleted per your requirement)
         try:
             os.remove(upload_path)
         except Exception:
             pass
 
-        # prepare response content
         bboxes = [{"class": classes[i], "confidence": confidences[i], "bbox": [float(x) for x in boxes[i]]}
                   for i in range(len(boxes))]
 
@@ -183,7 +160,6 @@ def detect():
         })
 
     except Exception as e:
-        # if failure, attempt to clean upload
         try:
             os.remove(upload_path)
         except Exception:
@@ -191,9 +167,7 @@ def detect():
         return jsonify({"error": f"Detection failed: {str(e)}"}), 500
 
 
-# --------------------------
 #  REMOVE BACKGROUND
-# --------------------------
 @app.route("/remove-bg", methods=["POST"])
 def remove_bg():
     # expects form-data: image file and _id
@@ -216,8 +190,7 @@ def remove_bg():
 
     try:
         img = Image.open(upload_path)
-        img_no_bg = remove(img)  # rembg returns PIL Image with alpha channel for PNGs
-
+        img_no_bg = remove(img)  
         out_folder = make_output_folder(user_id)
         out_name = f"{uid}_processed_bg.jpg"
         out_path = os.path.join(out_folder, out_name)
@@ -243,12 +216,9 @@ def remove_bg():
         return jsonify({"error": f"Background removal failed: {str(e)}"}), 500
 
 
-# --------------------------
 #  EXTRACT TEXT
-# --------------------------
 @app.route("/extract-text", methods=["POST"])
 def extract_text():
-    # expects form-data: image file and _id (id not strictly needed but kept for consistency)
     if 'image' not in request.files:
         return jsonify({"error": "No image provided"}), 400
     if '_id' not in request.form:
@@ -268,7 +238,6 @@ def extract_text():
 
     try:
         text = pytesseract.image_to_string(Image.open(upload_path))
-        # delete upload (no outputs created for OCR)
         try:
             os.remove(upload_path)
         except Exception:
@@ -287,9 +256,7 @@ def extract_text():
         return jsonify({"error": f"OCR failed: {str(e)}"}), 500
 
 
-# --------------------------
 #  FIND ALL OUTPUTS FOR A USER
-# --------------------------
 @app.route("/find-all", methods=["POST"])
 def find_all():
     # expects form-data: _id
@@ -307,14 +274,10 @@ def find_all():
     return jsonify({"images": urls})
 
 
-# --------------------------
 #  SERVE OUTPUT FILES (static)
-# --------------------------
 @app.route("/outputs/<path:filename>", methods=["GET"])
 def serve_output(filename):
-    # filename like "<user_id>/file.jpg"
     safe_path = os.path.normpath(filename)
-    # disallow path traversal
     if safe_path.startswith(".."):
         return jsonify({"error": "Invalid path"}), 400
 
@@ -323,7 +286,7 @@ def serve_output(filename):
         return jsonify({"error": "Invalid output path"}), 400
 
     user_folder = parts[0]
-    file_name = os.path.join(*parts[1:])  # rest of the path
+    file_name = os.path.join(*parts[1:]) 
     directory = os.path.join(app.config['OUTPUT_DIR'], user_folder)
 
     full_file = os.path.join(directory, file_name)
@@ -333,11 +296,7 @@ def serve_output(filename):
     return send_from_directory(directory, file_name, as_attachment=False)
 
 
-# --------------------------
-#  CLEANUP HELPERS (optional)
-# --------------------------
-# You might want periodic cleanup of old outputs if disk is limited.
-# Example strategy (not enabled): remove outputs older than X days.
+#  CLEANUP HELPERS 
 def cleanup_old_outputs(days=30):
     """Call this from a cron job or separate thread/process if needed."""
     cutoff = days * 24 * 3600
@@ -353,9 +312,6 @@ def cleanup_old_outputs(days=30):
                     pass
 
 
-# --------------------------
-#  RUN (development)
-# --------------------------
 if __name__ == "__main__":
     # For EC2 production: run behind a reverse proxy (nginx) and use gunicorn (see comments below).
     # Development default:
