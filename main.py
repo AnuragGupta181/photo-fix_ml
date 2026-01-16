@@ -1,3 +1,5 @@
+#do not use server.py use this one
+
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
@@ -7,10 +9,8 @@ import os
 import uuid
 from flask_cors import CORS
 import pytesseract
-import shutil
 
-
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 app = Flask(__name__)
 CORS(app)
@@ -23,22 +23,14 @@ app.config['UPLOAD_DIR'] = UPLOAD_DIR
 app.config['OUTPUT_DIR'] = OUTPUT_DIR
 app.config['ALLOWED'] = ALLOWED
 
-# create base folders
 os.makedirs(app.config['UPLOAD_DIR'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_DIR'], exist_ok=True)
 
 
-# --------------------------
-#  LOAD MODEL (global)
-# --------------------------
-# Keep model loaded globally for performance.
-MODEL_PATH = "best11.pt"  # ensure this exists
+MODEL_PATH = "best11.pt" 
 model = YOLO(MODEL_PATH)
 
 
-# --------------------------
-#  HELPERS
-# --------------------------
 def allowed_file(name):
     return '.' in name and name.rsplit('.', 1)[1].lower() in app.config['ALLOWED']
 
@@ -63,7 +55,6 @@ def draw_boxes_and_save(image_path, boxes, classes, out_path):
     img = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # try to load a default font - may not exist on minimal EC2 AMI; that's OK
     try:
         font = ImageFont.load_default()
     except Exception:
@@ -148,7 +139,6 @@ def detect():
         out_name = f"{uid}_processed_detect.jpg"
         out_path = os.path.join(out_folder, out_name)
 
-        # draw boxes and save output as JPG
         draw_boxes_and_save(upload_path, boxes, classes, out_path)
 
         try:
@@ -177,7 +167,6 @@ def detect():
 #  REMOVE BACKGROUND
 @app.route("/remove-bg", methods=["POST"])
 def remove_bg():
-    # expects form-data: image file and _id
     if 'image' not in request.files:
         return jsonify({"error": "No image provided"}), 400
     if '_id' not in request.form:
@@ -204,7 +193,6 @@ def remove_bg():
 
         save_jpg(img_no_bg, out_path)
 
-        # remove upload
         try:
             os.remove(upload_path)
         except Exception:
@@ -226,7 +214,6 @@ def remove_bg():
 #  EXTRACT TEXT
 @app.route("/extract-text", methods=["POST"])
 def extract_text():
-    # expects form-data: image file and _id (id not strictly needed but kept for consistency)
     if 'image' not in request.files:
         return jsonify({"error": "No image provided"}), 400
     if '_id' not in request.form:
@@ -246,7 +233,6 @@ def extract_text():
 
     try:
         text = pytesseract.image_to_string(Image.open(upload_path))
-        # delete upload
         try:
             os.remove(upload_path)
         except Exception:
@@ -268,7 +254,6 @@ def extract_text():
 #  FIND ALL OUTPUTS FOR A USER
 @app.route("/find-all", methods=["POST"])
 def find_all():
-    # expects form-data: _id
     if '_id' not in request.form:
         return jsonify({"error": "_id (user id) is required in form-data"}), 400
 
@@ -286,9 +271,7 @@ def find_all():
 #  SERVE OUTPUT FILES (static)
 @app.route("/outputs/<path:filename>", methods=["GET"])
 def serve_output(filename):
-    # filename like "<user_id>/file.jpg"
     safe_path = os.path.normpath(filename)
-    # disallow path traversal
     if safe_path.startswith(".."):
         return jsonify({"error": "Invalid path"}), 400
 
@@ -307,7 +290,7 @@ def serve_output(filename):
     return send_from_directory(directory, file_name, as_attachment=False)
 
 
-#  CLEANUP HELPERS.
+#  CLEANUP 
 def cleanup_old_outputs(days=30):
     """Call this from a cron job or separate thread/process if needed."""
     cutoff = days * 24 * 3600

@@ -1,0 +1,15 @@
+*outputs
+*uploads
+*.log   
+.env
+.DS_Store
+.env.local
+node_modules
+dist/
+.env
+.vscode/
+*.idea
+.idea/
+*.iml
+pycache/
+__pycache__/

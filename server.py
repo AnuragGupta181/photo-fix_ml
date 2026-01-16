@@ -1,3 +1,5 @@
+#do not use me use main.py
+
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
@@ -7,10 +9,9 @@ import os
 import uuid
 from flask_cors import CORS
 import pytesseract
-import shutil
 
 
-pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+# pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 app = Flask(__name__)
 CORS(app)
@@ -23,16 +24,13 @@ app.config['UPLOAD_DIR'] = UPLOAD_DIR
 app.config['OUTPUT_DIR'] = OUTPUT_DIR
 app.config['ALLOWED'] = ALLOWED
 
-# create base folders
 os.makedirs(app.config['UPLOAD_DIR'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_DIR'], exist_ok=True)
 
 
-MODEL_PATH = "best11.pt"  # ensure this exists
+MODEL_PATH = "best11.pt" 
 model = YOLO(MODEL_PATH)
 
-
-#  HELPERS
 def allowed_file(name):
     return '.' in name and name.rsplit('.', 1)[1].lower() in app.config['ALLOWED']
 
@@ -57,15 +55,15 @@ def draw_boxes_and_save(image_path, boxes, classes, out_path):
     img = Image.open(image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # try to load a default font - may not exist on minimal EC2 AMI; that's OK
     try:
-        font = ImageFont.load_default()
+        font_size = 28
+        font = ImageFont.load_default(font_size)
     except Exception:
         font = None
 
     for i, box in enumerate(boxes):
         x1, y1, x2, y2 = [int(round(x)) for x in box]
-        draw.rectangle([x1, y1, x2, y2], width=2, outline="red")
+        draw.rectangle([x1, y1, x2, y2], width=4, outline="red")
         label = classes[i]
         if font:
             draw.text((x1 + 4, y1 + 4), label, fill="red", font=font)
@@ -170,7 +168,6 @@ def detect():
 #  REMOVE BACKGROUND
 @app.route("/remove-bg", methods=["POST"])
 def remove_bg():
-    # expects form-data: image file and _id
     if 'image' not in request.files:
         return jsonify({"error": "No image provided"}), 400
     if '_id' not in request.form:
@@ -256,7 +253,7 @@ def extract_text():
         return jsonify({"error": f"OCR failed: {str(e)}"}), 500
 
 
-#  FIND ALL OUTPUTS FOR A USER
+#  FIND ALL 
 @app.route("/find-all", methods=["POST"])
 def find_all():
     # expects form-data: _id
@@ -296,7 +293,7 @@ def serve_output(filename):
     return send_from_directory(directory, file_name, as_attachment=False)
 
 
-#  CLEANUP HELPERS 
+#  CLEANUP
 def cleanup_old_outputs(days=30):
     """Call this from a cron job or separate thread/process if needed."""
     cutoff = days * 24 * 3600
@@ -313,6 +310,4 @@ def cleanup_old_outputs(days=30):
 
 
 if __name__ == "__main__":
-    # For EC2 production: run behind a reverse proxy (nginx) and use gunicorn (see comments below).
-    # Development default:
     app.run(host="0.0.0.0", port=5000, debug=False)
